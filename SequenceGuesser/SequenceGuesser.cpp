@@ -77,18 +77,17 @@ sOperator *Operators[MAX_POSS_OPERATORS];
 static struct {
 	int MaxItemsInExpression;	// 1+2*3 makes 5 items.
 	sOperator* Operators[MAX_POSS_OPERATORS];
-	int MaxRetroS;	// S => x in S(i-x).
-	int NumConstants; // 3 means we can use 1, 2 and 3. We never need 0 in a formula.
 } Attempts[] = {
 	// Start off with short strings and most likely operators, then check longer strings and more ops on later attempts.
-	//	Max	Ops																														MaxRetro	Constants
-	{	3,	{ &AddOp },																												2,			1	},
-	{	3,	{ &AddOp, &SubtractOp },																								2,			2	},
-	{	5,	{ &AddOp, &SubtractOp, &MultiplyOp, &DivideOp },																		2,			9	},
-	{	10,	{ &AddOp, &SubtractOp, &MultiplyOp, &DivideOp, &SquareOp },																2,			2	},
-	{	12,	{ &AddOp, &SubtractOp, &MultiplyOp, &DivideOp, &SquareOp },																2,			5	},
-	{	20,	{ &AddOp, &SubtractOp, &MultiplyOp, &DivideOp, &SquareOp, &CubeOp, &SqRootOp },											4,			9	},
-	{	20,	{ &AddOp, &SubtractOp, &MultiplyOp, &DivideOp, &SquareOp, &CubeOp, &SqRootOp, &DigitFromLeftOp, &DigitFromRightOp },	5,			9	}
+	{	 3,	{ &AddOp },																											},
+	{	 3,	{ &AddOp, &SubtractOp },																							},
+	{	 5,	{ &AddOp, &SubtractOp, &MultiplyOp, &DivideOp },																	},
+	{	10,	{ &AddOp, &SubtractOp, &MultiplyOp, &DivideOp, &SquareOp },															},
+#if 0
+	// ^^^ We could use these extra operations but it dramatically increases the time taken to solve even the simplest sequences.
+	{	10,	{ &AddOp, &SubtractOp, &MultiplyOp, &DivideOp, &SquareOp, &CubeOp, &SqRootOp }										},
+	{	20,	{ &AddOp, &SubtractOp, &MultiplyOp, &DivideOp, &SquareOp, &CubeOp, &SqRootOp, &DigitFromLeftOp, &DigitFromRightOp }	}
+#endif
 };
 #define NUM_ATTEMPTS (sizeof(Attempts) / sizeof(Attempts[0]))
 
@@ -236,13 +235,13 @@ static void SpitFormula(sItem Items[], int NumItems)
 
 static bool GuessSequence (int Seq[], int SeqLen,	int MaxItemsInExpression,	// 1+2*3 makes 5 items.
 													int NumOperators,
-													int MaxRetroS,				// How far back in the sequence you look. MaxRetroS == x means back as far as S(i-x).
-													int NumConstants)			// I.e. we use 1, 2, 3 in expressions. NumConstants == 9 means we can use all 9 constants 1-9.
+													int MaxRetroS)				// How far back in the sequence you look. MaxRetroS == x means back as far as S(i-x).
 {
 	// NumIndexValsForItem[] assumes the order of item types in eItemType. Not good coding but lends itself to this very fast method using a look-up table. The order is asserted in main().
 	static int NoIndexForI = 0;
+	static int All9Constants = 9;
 	static int* NumIndexValsForItem[NUM_ITEM_TYPES] = {
-		&NumConstants,	// CONSTANT. See block comment above.
+		&All9Constants,	// CONSTANT. Need all constants 1-9. 0 is never needed in formulas.
 		&MaxRetroS,		// S. See block comment above.
 		&NoIndexForI,	// I => index not used.
 		&NumOperators	// OPERATOR.
@@ -260,20 +259,8 @@ static bool GuessSequence (int Seq[], int SeqLen,	int MaxItemsInExpression,	// 1
 	StackHeight = 0;
 	NumItems = 0;
 
-	// When we want to tack another item onto the end of the string, what is that item? Probably a constant but if no constants in use in this
-	// attempt then it could be something else.
-	if (NumConstants >= 1)
-	{
-		NewItemType = CONSTANT;
-	}
-	else if (MaxRetroS >= 1)
-	{
-		NewItemType = S;
-	}
-	else
-	{
-		NewItemType = I;
-	}
+	// When we want to tack another item onto the end of the string, that item will be a constant.
+	NewItemType = CONSTANT;
 
 	for (Success = false, ItemValid = true; !Success; )
 	{
@@ -401,7 +388,7 @@ static bool GuessSequence (int Seq[], int SeqLen,	int MaxItemsInExpression,	// 1
 					{
 						// i == SeqLen so we were using this loop to generate the next number in the series after the ones the user provided.
 						// ^^^ Use printf until I figure out what type I want the Stack vals to be, so I can do it properly with cout.
-						printf("Got it! The next number is %li\n", (long int) Stack[0]);
+						printf("\nGot it! The next number is %li\n", (long int) Stack[0]);
 						SpitFormula(Items, NumItems);
 						Success = true;
 						KeepChecking = false;
@@ -489,7 +476,7 @@ int GetSequenceFromUser(int Seq[])
 
 int main()
 {
-	int a, NumOperators, SeqLen;
+	int a, NumOperators, SeqLen, MaxRetroS;
 	bool Success;
 	unsigned int ElapsedTime;
 	int Seq[MAX_SEQ_LEN];
@@ -498,11 +485,11 @@ int main()
 	// The order is asserted in here.
 	assert(CONSTANT == 0 && S == 1 && I == 2 && OPERATOR == 3 && NUM_ITEM_TYPES == 4);
 
-	cout << "=====================" << endl;
-	cout << "=                   =" << endl;
-	cout << "=  SEQUENCE GUESSER =" << endl;
-	cout << "=                   =" << endl;
-	cout << "=====================" << endl << endl;
+	cout << "======================" << endl;
+	cout << "=                    =" << endl;
+	cout << "=  SEQUENCE GUESSER  =" << endl;
+	cout << "=                    =" << endl;
+	cout << "======================" << endl << endl;
 	cout << "This program allows you to specify a sequence of numbers and it will guess the next number in the sequence." << endl << endl;
 
 	// Keep asking user for more series to work with until they type "quit".
@@ -510,39 +497,37 @@ int main()
 			SeqLen >= 1;
 			SeqLen = GetSequenceFromUser(Seq))
 	{
+		Success = false;
 		cout << "Hmm. Let's try this..." << endl;
-		for (a = 0; a < NUM_ATTEMPTS; a++)
+		for (MaxRetroS = 0; !Success && MaxRetroS < SeqLen - 2; MaxRetroS++)
 		{
-			for (NumOperators = 0; NumOperators < MAX_POSS_OPERATORS && Attempts[a].Operators[NumOperators]; NumOperators++)
+			for (a = 0; a < NUM_ATTEMPTS; a++)
 			{
-				Operators[NumOperators] = Attempts[a].Operators[NumOperators];
-				Operators[NumOperators]->Available = true;
-			}
-			if (NumOperators < MAX_POSS_OPERATORS)
-				Operators[NumOperators] = nullptr;
-			NoteTime();
-			Success = GuessSequence(Seq, SeqLen, Attempts[a].MaxItemsInExpression, NumOperators, Attempts[a].MaxRetroS, Attempts[a].NumConstants);
-			ElapsedTime = NoteTime();
-			if (Success)
-			{
-				// Use printf() because it supports the format specifiers we need.
-				printf("Took me %02d:%02d:%02d.\n", ElapsedTime / 3600, ElapsedTime / 60 % 60, ElapsedTime % 60);
-				break;
-			}
-			else
-			{
-				static string CuteComments[] = {
-					"...That didn't work. I wonder if I should try...",
-					"...No luck. What if I...",
-					"...This is harder than I thought. What about...",
-					"...Wow, I'm struggling here. No beaten yet though..."
-				};
-				cout << CuteComments[a % (sizeof(CuteComments) / sizeof(CuteComments[0]))] << endl;
+				for (NumOperators = 0; NumOperators < MAX_POSS_OPERATORS && Attempts[a].Operators[NumOperators]; NumOperators++)
+				{
+					Operators[NumOperators] = Attempts[a].Operators[NumOperators];
+					Operators[NumOperators]->Available = true;
+				}
+				if (NumOperators < MAX_POSS_OPERATORS)
+					Operators[NumOperators] = nullptr;
+				NoteTime();
+				Success = GuessSequence(Seq, SeqLen, Attempts[a].MaxItemsInExpression, NumOperators, MaxRetroS);
+				ElapsedTime = NoteTime();
+				if (Success)
+				{
+					// Use printf() because it supports the format specifiers we need.
+					printf("Took me %02d:%02d:%02d.\n", ElapsedTime / 3600, ElapsedTime / 60 % 60, ElapsedTime % 60);
+					break;
+				}
+				else
+				{
+					cout << "Hmm...";
+				}
 			}
 		}
-		if (a == NUM_ATTEMPTS)
+		if (!Success)
 		{
-			cout << "Gah! Sorry, I couldn't work out the next number. :-(" << endl;
+			cout << endl << "Gah! Sorry, I couldn't work out the next number. :-(" << endl;
 		}
 		cout << endl << endl << "---------------------------------------------------" << endl << endl;
 	}
