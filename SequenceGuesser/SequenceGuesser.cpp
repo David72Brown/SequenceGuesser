@@ -1,19 +1,12 @@
 /*
 Improvements to make:
 
-Function main() should be able to initiate a search of a certain string length and using the most common operators etc, then if that fails it starts a new search using sqrt() etc
-and the search must only try formulas which include the new operators and at the new extended length.
-
-Add missing values, possibly multiple ones, giving the formula a bye for generating them. For each correct formula, use it to predict the missing value.
-
-To predict next value after last given value, regard that as a "missing value" in that end position.
-
 Need new operators:
 	- Modulo - should be easy.
-	- Accessing individual digits of previous values in series e.g. digits counted from least-sig digit or digits from most-sig.
 	- Sum and Product operators (Sigma and Pi).
 
-Once got timings recorded for various sequences, try changing S to be just another unary operator, "S", which operates on the last value on the stack.
+Try changing S to be just another unary operator, "S", which operates on the last value on the stack.
+See if that's any faster.
 */
 
 #include "stdafx.h"
@@ -30,8 +23,9 @@ typedef enum { CONSTANT, S, I, OPERATOR, NUM_ITEM_TYPES } eItemType; // Don't ch
 #define INC_TYPE(x) x = static_cast<eItemType>(1 + static_cast<int>(x))
 
 #define MAX_POSS_ITEMS_IN_EXPRESSION	20	// Beyond that and it would probably take a very long time.
-#define MAX_SEQ_LEN	50 // Number of numbers in a sequence, including missing ones in the middle or at the end.
+#define MAX_SEQ_LEN	50 // Number of numbers in a sequence e.g. 1+2*3 makes 5 items. This includes a "space" for the next number at the end.
 
+// Below are the sample sequences which the user can use through the UI.
 static struct {
 	int SeqLen;
 	int Seq[MAX_SEQ_LEN];
@@ -45,20 +39,20 @@ static struct {
 
 typedef double(*pOperatorFn) (double a, double b);
 typedef struct {
-	char		*Display;	// "+"
+	char		*Display;	// How we display this operation on the console, e.g. "+".
 	int			NumOperands;
 	pOperatorFn	pOpFunction;
 	bool		Available;	// Whether we're using it in this attempt.
 } sOperator;
-double AddOpFn(double a, double b) { return a + b; }
-double SubtractOpFn(double a, double b) { return a - b; }
-double MultiplyOpFn(double a, double b) { return a * b; }
-double DivideOpFn(double a, double b) { return a / b; }
-double SquareOpFn(double a, double b) { return b * b; }
-double CubeOpFn(double a, double b) { return b * b * b; }
-double SqRootOpFn(double a, double b) { return sqrt(b); }
-double DigitFromRightOpFn(double a, double b) { return int(a / pow(10, b)) % 10; }				// Digit 0 is units, 1 is tens, 2 is hundreds etc.
-double DigitFromLeftOpFn(double a, double b) { return DigitFromRightOpFn(a, log10(a) - b); }	// Digit 0 is leftmost digit, 1 is next etc.
+double AddOpFn(double a, double b)				{ return a + b; }
+double SubtractOpFn(double a, double b)			{ return a - b; }
+double MultiplyOpFn(double a, double b)			{ return a * b; }
+double DivideOpFn(double a, double b)			{ return a / b; }
+double SquareOpFn(double a, double b)			{ return b * b; }
+double CubeOpFn(double a, double b)				{ return b * b * b; }
+double SqRootOpFn(double a, double b)			{ return sqrt(b); }
+double DigitFromRightOpFn(double a, double b)	{ return int(a / pow(10, b)) % 10; }				// Digit 0 is units, 1 is tens, 2 is hundreds etc.
+double DigitFromLeftOpFn(double a, double b)	{ return DigitFromRightOpFn(a, log10(a) - b); }	// Digit 0 is leftmost digit, 1 is next etc.
 
 sOperator AddOp				= { "+", 2, AddOpFn };
 sOperator SubtractOp		= { "-", 2, SubtractOpFn };
@@ -96,6 +90,7 @@ typedef struct {
 	int			Index;
 } sItem;
 
+// This function determines how much the stack would increase by given the item we've found in the formula string.
 static int GetStackHeightIncrease(eItemType e, int Index)
 {
 	if (e == OPERATOR)
@@ -387,7 +382,7 @@ static bool GuessSequence (int Seq[], int SeqLen,	int MaxItemsInExpression,	// 1
 					else
 					{
 						// i == SeqLen so we were using this loop to generate the next number in the series after the ones the user provided.
-						// ^^^ Use printf until I figure out what type I want the Stack vals to be, so I can do it properly with cout.
+						// Use printf until I figure out how to make cout handle the long int.
 						printf("\nGot it! The next number is %li\n", (long int) Stack[0]);
 						SpitFormula(Items, NumItems);
 						Success = true;
